@@ -9,7 +9,13 @@ export class PipelineStack extends cdk.Stack {
       pipelineName: 'MyPipeline',
 
       synth: new ShellStep('Synth', {
-        input: CodePipelineSource.gitHub('saivivekanand27/Devops_multiStack', 'main'),
+        input: CodePipelineSource.connection(
+          'saivivekanand27/Devops_multiStack',
+          'main',
+          {
+            connectionArn: 'PASTE-YOUR-ARN-HERE', // ⚠️ IMPORTANT
+          }
+        ),
 
         commands: [
           'npm install',
