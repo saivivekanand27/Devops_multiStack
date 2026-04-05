@@ -7,12 +7,31 @@ interface ComputeStackProps extends cdk.StackProps {
 }
 
 export class ComputeStack extends cdk.Stack {
+  public readonly instance: ec2.Instance;
+
   constructor(scope: Construct, id: string, props: ComputeStackProps) {
     super(scope, id, props);
 
-    // ✅ Create EC2 Instance (Simulating Kubernetes Node)
-    const instance = new ec2.Instance(this, "MyEC2Instance", {
+    const sg = new ec2.SecurityGroup(this, "InstanceSG", {
       vpc: props.vpc,
+      allowAllOutbound: true,
+    });
+
+    // Allow HTTP
+    sg.addIngressRule(ec2.Peer.anyIpv4(), ec2.Port.tcp(80));
+
+    this.instance = new ec2.Instance(this, "MyEC2Instance", {
+      vpc: props.vpc,
+
+      // ✅ PUBLIC SUBNET
+      vpcSubnets: {
+        subnetType: ec2.SubnetType.PUBLIC,
+      },
+
+      // ✅ PUBLIC IP
+      associatePublicIpAddress: true,
+
+      securityGroup: sg,
 
       instanceType: ec2.InstanceType.of(
         ec2.InstanceClass.T3,
@@ -20,21 +39,17 @@ export class ComputeStack extends cdk.Stack {
       ),
 
       machineImage: ec2.MachineImage.latestAmazonLinux2(),
-
-      // 🔥 USER DATA (Runs when EC2 starts)
-      userData: ec2.UserData.custom(`
-        #!/bin/bash
-        yum update -y
-
-        # Install Docker
-        yum install -y docker
-        service docker start
-        usermod -a -G docker ec2-user
-
-        # Simulate Kubernetes Node Setup
-        echo "Kubernetes Worker Node Ready" > /home/ec2-user/k8s-node.txt
-      `),
     });
-    
+
+    // ✅ Apache setup
+    this.instance.addUserData(
+      "#!/bin/bash",
+      "yum update -y",
+      "yum install -y httpd",
+      "systemctl start httpd",
+      "systemctl enable httpd",
+      "echo '<h1>Hello from EC2 via ALB 🚀</h1>' > /var/www/html/index.html",
+      "systemctl restart httpd"
+    );
   }
 }
